@@ -80,7 +80,7 @@ data/raw/**
 data/unpacked/**
 data/recoded/**
 data/final/**
-#data/final_concat/**
+data/final_concat/**
 
 # Mac OS-specific storage files
 .DS_Store
