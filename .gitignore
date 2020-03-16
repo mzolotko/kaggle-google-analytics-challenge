@@ -77,10 +77,10 @@ target/
 
 # exclude data from source control by default
 data/raw/**
-data/unpacked/**  
-data/recoded/**  
-data/final/**  
-data/final_concat/** 
+data/unpacked/**
+data/recoded/**
+data/final/**
+#data/final_concat/**
 
 # Mac OS-specific storage files
 .DS_Store
