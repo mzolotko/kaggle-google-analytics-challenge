@@ -52,7 +52,7 @@ def unpack_2(df, jsoncols):
      Written for one particular column (customDimensions)
     '''
     for jc in jsoncols:  # parse json
-        flat_df = df[jc].apply(literal_eval).apply(pd.DataFrame)#.apply(pd.json_normalize).tolist()  
+        flat_df = df[jc].apply(literal_eval).apply(pd.DataFrame).to_list()#.apply(pd.json_normalize).tolist()  
         # result is a list of dataframes, each has one row, row index=0 and columns 
         # 'index' and 'value' according to the given json format
         # cannot make a DataFrame from the list right away because some elements are empty dataframes
@@ -66,7 +66,7 @@ def unpack_2(df, jsoncols):
                 flat_df[i] = pd.DataFrame(columns=['index', 'value'], index=[0])
             # next line makes a new index, otherwise it is 0 for all dfs
             #flat_df[i] = pd.DataFrame(flat_df[i].values, columns=flat_df[i].columns, index=[i])
-        flat_df = pd.concat(flat_df.to_list(), sort=True)
+        flat_df = pd.concat(flat_df, sort=True)
         # use index of df to enable joining (see below)
         flat_df = pd.DataFrame(flat_df.values, columns=flat_df.columns, index=df.index)
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
