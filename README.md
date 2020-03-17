@@ -9,7 +9,7 @@ This competition was peculiar in many ways. There was a significant change of ho
 - Choice of the main target variable (totals.transactionRevenue, which includes only the last transaction in a session, rather than totals.totalTransactionRevenue, which includes all transactions in a session). Given that transactions are generally very rare, this may have had an insignificant effect on the final results.
 - Calculation of the evaluation metric. RMSE was supposed to be calculated using the log figures of the revenue. To my mind taking logs of a monetary figure makes little sense, i.e. large deviations from true monetary values should be penalised proportionally to the small deviations, and not disproportionally mildly.
 
-The final results (at least in the top 50) were relatively close to each other, and it also seems that even the best-performing models don't produce particularly good predictions, though it is difficult to see directly because RMSE is not a relative measure. Anyway it seems that ├── rawthe distribution of the final ranks in the, say top-50 is to a certain extent attributed to luck, that's also why it is probably better to be skeptical about "secret" or "crucial" tricks to achieve this or that ranking.
+The final results (at least in the top 50) were relatively close to each other, and it also seems that even the best-performing models don't produce particularly good predictions, though it is difficult to see directly because RMSE is not a relative measure. Anyway it seems that the distribution of the final ranks in the, say top-50 is to a certain extent attributed to luck, that's also why it is probably better to be skeptical about "secret" or "crucial" tricks to achieve this or that ranking.
 
 My approach was relatively straightforward. I tried to make sense of all the data that seemed to contribute value, I conducted a lot of visual/exploratory analysis (not provided in this repo). After feature selection and some feature recoding/generation, the data was aggregated on several time windows so that the features (X) relate to a certain period of time, and the target variable y relates (relative to this period of time) to a certain future period of time. The aggregation could have been possible in many ways, and it could have been possible to treat various aggregation parameters as hyperparameters that can be optimised, but due to lack of time I stuck to one parameter combination. The ultimate model I used was GBM (LightGBM) without hyperparameter optimisation (also due to lack of time). Bottom line is that this project was more of a data wrangling (and less of actual machie learning) project.
 
@@ -59,6 +59,13 @@ Project Organization
     │
     └── tox.ini            <- tox file with settings for running tox; see tox.testrun.org
 
+Workflow 
+------------
+The workflow is described for Linux, to run it on Windows you will have to install Make and get it to work.
+
+- Setup
+-- Clone or download this repo
+-- TODO
 
 --------
 
