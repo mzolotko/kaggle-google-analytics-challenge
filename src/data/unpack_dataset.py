@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from ast import literal_eval
 from src.utils import get_logger
+import time
 
 
 def unpack(df, jsoncols):
@@ -285,7 +286,8 @@ def main(input_filepath, output_filepath):
             i += 1
         conc_without_hits = pd.concat(without_hits_lst, axis=0,  ignore_index=True)
     
-        # processing columns hits    
+        # processing columns hits
+        time_0 = time.time()
         reader = pd.read_csv(os.path.join(input_filepath, file_name + '_v2.csv'), 
                              dtype = {'fullVisitorId': 'str'}, chunksize = 40000, 
                              usecols = ['hits'], index_col=False)
@@ -299,7 +301,7 @@ def main(input_filepath, output_filepath):
 
             unp_hits = unpack_hits(hits, hits.columns, hits_required_cols)
             logger.info('unpacking finished')
-            print('unpacking finished')
+            print('unpacking finished, {} minutes elapsed'.format((time.time() - time_0) / 60))
           
             # aggregate hits data (that are on hit level) to the session level
             unp_hits_agg = unp_hits[[
@@ -319,7 +321,7 @@ def main(input_filepath, output_filepath):
                                 'hits_type': count_page
                                 })
             logger.info('aggregation of hits data finished')
-            print('aggregation of hits data finished')
+            print('aggregation of hits data finished, {} minutes elapsed'.format((time.time() - time_0) / 60))
             unp_hits_agg.to_pickle(os.path.join(output_filepath, 
                                                 file_name + '_agg_hits_{}.zip'.format(i)))
         

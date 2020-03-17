@@ -191,13 +191,7 @@ def recod(df):
     return df
 
 
-def factoris(df):
-    '''
-	Encoding of categorical features according to the recommendation from the LightGBM documentation:
-	Categorical features must be encoded as non-negative integers (int) less than Int32.MaxValue (2147483647). 
-	It is best to use a contiguous range of integers started from zero.
-	'''
-    
+def factoris(df):    
     
     '''
     Parameters
