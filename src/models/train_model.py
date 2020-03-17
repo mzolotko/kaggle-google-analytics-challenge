@@ -47,13 +47,13 @@ def main(input_filepath, submission_filepath,
                 'geoNetwork_city_MODE', 'referSocNetwork_MODE']
     
     dtrain = lgb.Dataset(X_train, y_log, free_raw_data=False, silent=False, 
-                     categorical_feature= cat_feat)
+                     categorical_feature=cat_feat)
     
-    lgbm_model = lgb.train(params = lgb_params, 
-                           train_set = dtrain,  
-                           valid_sets = [dtrain],
+    lgbm_model = lgb.train(params=lgb_params, 
+                           train_set=dtrain,  
+                           valid_sets=[dtrain],
                            categorical_feature=cat_feat, 
-                           verbose_eval = 100
+                           verbose_eval=100
                            )
     
     print('Saving model')
@@ -73,11 +73,11 @@ def main(input_filepath, submission_filepath,
     # 0.6 is an approximate way to scale down the total revenue from the actual 
     # forecast period (108 days) to two months (~60 days)
     subm = pd.read_csv(os.path.join(submission_filepath, 'sample_submission_v2.csv'), 
-                       dtype = {'fullVisitorId': 'str'},  index_col = 'fullVisitorId')
-    y_log_pred_2_months_df = pd.DataFrame(y_log_pred_2_months, index = X_pred.index)
+                       dtype={'fullVisitorId': 'str'},  index_col='fullVisitorId')
+    y_log_pred_2_months_df = pd.DataFrame(y_log_pred_2_months, index=X_pred.index)
     fin_subm = subm.join(y_log_pred_2_months_df)
-    fin_subm.drop(['PredictedLogRevenue'], axis = 1, inplace = True)
-    fin_subm.rename(columns = {0: 'PredictedLogRevenue'}, inplace = True)
+    fin_subm.drop(['PredictedLogRevenue'], axis=1, inplace=True)
+    fin_subm.rename(columns={0: 'PredictedLogRevenue'}, inplace=True)
     fin_subm.to_csv(os.path.join(output_prediction_filepath, 'fin_subm.csv'))
     
     

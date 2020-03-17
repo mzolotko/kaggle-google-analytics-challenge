@@ -50,15 +50,15 @@ def fillna_convert(df):
                 'count_AddCart', 'count_PromoView', 
                 'count_ViewedCat', 'totals_sessionQualityDim',
                'totals_timeOnSite']:
-        df[col].fillna(0, inplace = True)
+        df[col].fillna(0, inplace=True)
         df[col] = df[col].astype('int16')
     
     #if 'totals_transactionRevenue' in df.columns:
     for col in ['totals_transactionRevenue', 'totals_totalTransactionRevenue']:
-        df[col].fillna(0, inplace = True)
+        df[col].fillna(0, inplace=True)
         df[col] = df[col].astype('int64')
         
-    df['referSocNetwork'].fillna('(not set)', inplace = True)
+    df['referSocNetwork'].fillna('(not set)', inplace=True)
     
     # first fillna with countPageViews (as a proxy for a number of page views 
     # calculated based on one of the "hits" fields), 
@@ -69,7 +69,7 @@ def fillna_convert(df):
         df.loc[pd.isnull(df['totals_pageviews']), 'totals_hits']
     
     # countPageViews is no longer needed
-    df.drop(['countPageViews'], axis =1, inplace = True, errors='ignore')
+    df.drop(['countPageViews'], axis=1, inplace=True, errors='ignore')
     
     df['totals_hits'] = df['totals_hits'].astype('int32')
     df['totals_pageviews'] = df['totals_pageviews'].astype('int32')
@@ -89,9 +89,9 @@ def create_date_cols(df):
     
     '''
     df = df.copy()
-    df['visitStartTime'] = pd.to_datetime(df['visitStartTime'], unit = 's')
+    df['visitStartTime'] = pd.to_datetime(df['visitStartTime'], unit='s')
     df.index = df['visitStartTime']
-    df = df.sort_index(level = 0)
+    df = df.sort_index(level=0)
     
     df['year'] = df['visitStartTime'].dt.year
     df['month']= df['visitStartTime'].dt.month
@@ -110,7 +110,7 @@ def gen_dummies_ratios(df):
     '''
     df = df.copy()
   
-    user_id_analyt = df[df['referURL'].str.contains('analytics', na = False)]['fullVisitorId'].unique()  
+    user_id_analyt = df[df['referURL'].str.contains('analytics', na=False)]['fullVisitorId'].unique()  
     # indicator if the referrer URL has any relation to Google Analytics: 
     # hypothesis is that Google analytics users primary goal is not to buy google merchandise
     df['user_id_analyt'] = df['fullVisitorId'].isin(user_id_analyt).astype('int16')
@@ -125,7 +125,7 @@ def gen_dummies_ratios(df):
   
     # after calculating ratios we don't need these two columns
     df.drop( ['count_PromoView', 'count_AddCart'], 
-            axis = 1, inplace = True)
+            axis=1, inplace=True)
     # share of the number of total hits
     df.loc[df['totals_hits'] == 0, 'share_PromoView'] = 0
   
@@ -182,11 +182,11 @@ def recod(df):
 	# some further recoding (binarisation) of trafficSource_keyword
     df['trafficSource_keyword_recod'] = 0
     df.loc[df['trafficSource_keyword'].str.contains('google|merch', 
-                                                    case  = False, na = False) , 
+                                                    case=False, na=False) , 
                                        'trafficSource_keyword_recod'] = 1
     
     df.drop(list(recod_col.keys()) + ['trafficSource_keyword'], 
-            axis = 1, inplace = True)
+            axis=1, inplace=True)
     
     return df
 

@@ -28,7 +28,7 @@ def unpack(df, jsoncols):
     '''
     for jc in jsoncols:
         # use index of df to enable joining (see below)
-        flat_df = pd.DataFrame(df.pop(jc).apply(pd.io.json.loads).values.tolist(), index = df.index)
+        flat_df = pd.DataFrame(df.pop(jc).apply(pd.io.json.loads).values.tolist(), index=df.index)
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
         df = df.join(flat_df)
     return df
@@ -52,20 +52,21 @@ def unpack_2(df, jsoncols):
      Written for one particular column (customDimensions)
     '''
     for jc in jsoncols:  # parse json
-        flat_df = df[jc].apply(literal_eval).apply(pd.json_normalize).tolist()  
+        flat_df = df[jc].apply(literal_eval).apply(pd.DataFrame)#.apply(pd.json_normalize).tolist()  
         # result is a list of dataframes, each has one row, row index=0 and columns 
         # 'index' and 'value' according to the given json format
         # cannot make a DataFrame from the list right away because some elements are empty dataframes
         # they would just collapsed, but they should be kept as NaN
-        for i in range(len(flat_df)):
+        for i,_ in enumerate(flat_df):
             if flat_df[i].empty:
                 # just insert some dataframe with the correct format. 
                 # The dfs will be concatenated, and if the corresponding df was empty, 
                 # the values in the concatenated df will be replaced with NaN in the next step
-                flat_df[i] = flat_df[i-1]  
+                #flat_df[i] = flat_df[i-1]  
+                flat_df[i] = pd.DataFrame(columns=['index', 'value'], index=[0])
             # next line makes a new index, otherwise it is 0 for all dfs
-            flat_df[i] = pd.DataFrame(flat_df[i].values, columns=flat_df[i].columns, index=[i])
-        flat_df = pd.concat(flat_df, sort=True)
+            #flat_df[i] = pd.DataFrame(flat_df[i].values, columns=flat_df[i].columns, index=[i])
+        flat_df = pd.concat(flat_df.to_list(), sort=True)
         # use index of df to enable joining (see below)
         flat_df = pd.DataFrame(flat_df.values, columns=flat_df.columns, index=df.index)
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
@@ -94,7 +95,7 @@ def unpack_3(df, jsoncols):
     for col in jsoncols :
         df = df.copy()
         flat_df = df.pop(col).apply(pd.Series)
-        flat_df = pd.DataFrame(flat_df.values, columns = flat_df.columns, index = df.index)
+        flat_df = pd.DataFrame(flat_df.values, columns=flat_df.columns, index=df.index)
         flat_df.columns = ['{}_{}'.format(col, c) for c in flat_df.columns]
         df = df.join(flat_df)
     return df  
@@ -117,27 +118,33 @@ def unpack_hits(df, cols_to_unpack, required_cols):
     '''
     for jc in cols_to_unpack:  # parse json
         flat_df = df[jc].apply(literal_eval).apply(pd.json_normalize).tolist()  
+        flat_df_lean = []
         # in flat_df each element is a dataframe consisting of one or several rows
         # each row represents one hit. Each df represents one session of one user)
-        for i in range(len(flat_df)):
+        for i, _ in enumerate(flat_df):
             if flat_df[i].empty: # if the value in the original hist column is '[]',
                                  # this will result in an empty df
                 # Create a DataFrame composed of NAs with all required columns and a multiindex (see below)
-                flat_df[i] = pd.DataFrame(np.tile(np.nan,(1, len(required_cols))), columns = required_cols, 
-                                        index = pd.MultiIndex.from_product([[i],[0]],  names=['ind_exter', 'ind_inter']))
+                #flat_df_elem = pd.DataFrame(np.tile(np.nan,(1, len(required_cols))), columns=required_cols, 
+                #                        index=pd.MultiIndex.from_product([[i],[0]],  names=['ind_exter', 'ind_inter']))
+                flat_df_lean.append(pd.DataFrame(columns=required_cols, index=[i]))
             else:
-                iterables = [[i], flat_df[i].index]
+                #iterables = [[i], flat_df_elem.index]
                 # multiindex necessary because each cell contained more than one entry of several json fields
-                m_index = pd.MultiIndex.from_product(iterables, names=['ind_exter', 'ind_inter'])
+                #m_index = pd.MultiIndex.from_product(iterables, names=['ind_exter', 'ind_inter'])
                 
-                flat_df[i] = pd.DataFrame(flat_df[i].values, columns = flat_df[i].columns, index = m_index)
+                #flat_df_elem = pd.DataFrame(flat_df_elem.values, columns=flat_df_elem.columns, index=m_index)
+                flat_df_lean.append(pd.DataFrame(columns=required_cols.keys(), index=[i]))
+                for col in required_cols:
+                    if col in flat_df[i].columns:
+                        flat_df_lean[i].loc[i, col] = flat_df[i][col].agg(required_cols[col])
                 
-        flat_df = pd.concat(flat_df, sort=True)
+        flat_df = pd.concat(flat_df_lean, sort=True)
         # As a result we obtain a df with the number of rows equal to
         # the total number of hits, i.e.
         # the sum of hits for all individual sessions
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
-        flat_df = flat_df[required_cols]
+        #flat_df = flat_df[required_cols]
         # we don't join the result with the initial df. We return it as is
         # and aggregate to the session level later
     return flat_df 
@@ -166,6 +173,16 @@ def count_page(x):
     number of occurrences of "PAGE" in the series'''
     return (x == 'PAGE').sum()
 
+def first_(x):
+    '''
+    Parameters
+    ----------
+    x : Series
+
+    Returns
+    -------
+    first element of the series'''
+    return x.iloc[0]
 
 @click.command()
 @click.argument('input_filepath', type=click.Path(exists=True))
@@ -234,25 +251,34 @@ def main(input_filepath, output_filepath):
                     'device_isMobile', 'geoNetwork_continent',
                     'geoNetwork_country', 'totals_newVisits'
                    ]
-    
+
     # fields in the hits column to be left (according to sample exploratory analysis)
-    hits_required_cols = [
-                          'hits_contentGroup.contentGroup2', 
-                          'hits_eventInfo.eventAction', 
-                          'hits_promotionActionInfo.promoIsView',
-                          'hits_referer',
-                          'hits_social.socialNetwork', 
-                          'hits_type']
+  #  hits_required_cols = [
+  #                        'hits_contentGroup.contentGroup2', 
+  #                        'hits_eventInfo.eventAction', 
+  #                        'hits_promotionActionInfo.promoIsView',
+  #                        'hits_referer',
+  #                        'hits_social.socialNetwork', 
+  #                        'hits_type']
+
+    hits_required_cols = {                 
+                        'contentGroup.contentGroup2':  'nunique',
+                        'eventInfo.eventAction': count_cart,
+                        'promotionActionInfo.promoIsView': 'count',
+                        'referer': first_,
+                        'social.socialNetwork': first_,
+                        'type': count_page}
 
     for file_name in ['train', 'test']:
         logger.info('Working on the {} dataset, all columns apart from hits'.format(file_name))
         print('Working on the {} dataset, all columns apart from hits'.format(file_name))
         # reading in chunks because train dataset is over 16 GB
         reader = pd.read_csv(os.path.join(input_filepath, file_name + '_v2.csv'), 
-                       dtype = {'fullVisitorId': 'str'}, chunksize = 150000, 
-                       usecols = lambda x: x not in ['hits'], index_col=False)
+                       dtype={'fullVisitorId': 'str'}, chunksize=150000, 
+                       usecols=lambda x: x not in ['hits'], index_col=False)
         
         # processing all columns except "hits"
+        time_0 = time.time()
         for i, chunk in enumerate(reader):
             logger.info('chunk number: {}'.format(i))
             print('chunk number: {}'.format(i))
@@ -260,8 +286,11 @@ def main(input_filepath, output_filepath):
             # the range index was created automatically
             chunk.drop(columns=[chunk.columns[0]], inplace=True)
             df = unpack(chunk, jsoncols)
+            print('unpack finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
             df = unpack_2(df, cols_cust_dim)
+            print('unpack_2 finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
             df = unpack_3(df, col_adclick)
+            print('unpack_3 finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
             for col in col_to_investigate:
                 if col in df.columns:
                     logger.info(df[col].value_counts())  
@@ -269,7 +298,7 @@ def main(input_filepath, output_filepath):
                     # value_counts is self-explanatory, column name is printed automatically
             if 'trafficSource_adwordsClickInfo_targetingCriteria' in df.columns:
                 logger.info('targetingCriteria NA mean: {:.2f}'.format(pd.isna(df['trafficSource_adwordsClickInfo_targetingCriteria']).mean()))
-            df.drop(col_to_drop, axis =1, inplace = True, errors='ignore')
+            df.drop(col_to_drop, axis=1, inplace=True, errors='ignore')
     
             # save each processed chunk of initial files without the hits column
             df.to_pickle(os.path.join(output_filepath, file_name + '_no_hits_{}.zip'.format(i)))
@@ -287,10 +316,10 @@ def main(input_filepath, output_filepath):
         conc_without_hits = pd.concat(without_hits_lst, axis=0,  ignore_index=True)
     
         # processing columns hits
-        time_0 = time.time()
+        
         reader = pd.read_csv(os.path.join(input_filepath, file_name + '_v2.csv'), 
-                             dtype = {'fullVisitorId': 'str'}, chunksize = 40000, 
-                             usecols = ['hits'], index_col=False)
+                             dtype={'fullVisitorId': 'str'}, chunksize=40000, 
+                             usecols=['hits'], index_col=False)
         logger.info('Working on the {} dataset, the hits column'.format(file_name))
         print('Working on the {} dataset, the hits column'.format(file_name))
         
@@ -299,29 +328,29 @@ def main(input_filepath, output_filepath):
             print('chunk number: {}'.format(i))
             hits = chunk[['hits']]
 
-            unp_hits = unpack_hits(hits, hits.columns, hits_required_cols)
+            unp_hits_agg = unpack_hits(hits, hits.columns, hits_required_cols)
             logger.info('unpacking finished')
-            print('unpacking finished, {} minutes elapsed'.format((time.time() - time_0) / 60))
+            print('unpacking finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
           
             # aggregate hits data (that are on hit level) to the session level
-            unp_hits_agg = unp_hits[[
-                                     'hits_contentGroup.contentGroup2', 
-                                     'hits_eventInfo.eventAction',
-                                     'hits_promotionActionInfo.promoIsView',
-                                     'hits_referer',
-                                     'hits_social.socialNetwork', 
-                                     'hits_type']].groupby(level=0).agg({
-        
-                                
-                                'hits_contentGroup.contentGroup2':  'nunique',
-                                'hits_eventInfo.eventAction': count_cart,
-                                'hits_promotionActionInfo.promoIsView': 'count',
-                                'hits_referer': 'first',
-                                'hits_social.socialNetwork': 'first',
-                                'hits_type': count_page
-                                })
-            logger.info('aggregation of hits data finished')
-            print('aggregation of hits data finished, {} minutes elapsed'.format((time.time() - time_0) / 60))
+            #unp_hits_agg = unp_hits[[
+            #                         'hits_contentGroup.contentGroup2', 
+            #                         'hits_eventInfo.eventAction',
+            #                         'hits_promotionActionInfo.promoIsView',
+            #                         'hits_referer',
+            #                         'hits_social.socialNetwork', 
+            #                         'hits_type']].groupby(level=0).agg({
+       # 
+       #                         
+       #                         'hits_contentGroup.contentGroup2':  'nunique',
+       #                         'hits_eventInfo.eventAction': count_cart,
+       #                         'hits_promotionActionInfo.promoIsView': 'count',
+       #                         'hits_referer': 'first',
+       #                         'hits_social.socialNetwork': 'first',
+       #                         'hits_type': count_page
+       #                         })
+       #     logger.info('aggregation of hits data finished')
+       #     print('aggregation of hits data finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
             unp_hits_agg.to_pickle(os.path.join(output_filepath, 
                                                 file_name + '_agg_hits_{}.zip'.format(i)))
         
@@ -340,7 +369,7 @@ def main(input_filepath, output_filepath):
         # concatenate "no_hits" and "hits" parts for each of [train, test] together
         logger.info('Concatenating {}'.format(file_name))
         print('Concatenating {}'.format(file_name))
-        hits_nothits = pd.concat([conc_without_hits, conc_hits], axis = 1)
+        hits_nothits = pd.concat([conc_without_hits, conc_hits], axis=1)
         del conc_without_hits, conc_hits
         hits_nothits.to_pickle(os.path.join(output_filepath, file_name + '_conc.zip'))
     
@@ -351,7 +380,7 @@ def main(input_filepath, output_filepath):
     test = pd.read_pickle(os.path.join(output_filepath, 'test_conc.zip'))
     logger.info('Concatenating train and test')
     print('Concatenating train and test')
-    conc = pd.concat([train, test], ignore_index = True, axis = 0)
+    conc = pd.concat([train, test], ignore_index=True, axis=0)
     conc.to_pickle(os.path.join(output_filepath, 'conc.zip'))
     logger.info('Process finished')
     print('Process finished')
