@@ -64,9 +64,9 @@ Workflow
 The workflow is described for Linux, to run it on Windows you will have to install Make and get it to work.
 
 - Setup
-* Clone or download this repo
-* TODO
-    * TODO
+1. Clone or download this repo
+1. TODO
+1. TODO
 
 --------
 
