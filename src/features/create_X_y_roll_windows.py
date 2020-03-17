@@ -8,18 +8,23 @@ import numpy as np
 from collections import Counter
 from src.utils import get_logger, mode, reduce_mem_usage, two_latest_months
 from src.configs import global_params
-#from pandas.io.json import json_normalize
-#from ast import literal_eval
 
 
 
 def mapping_month_histRev(multiindex):
+    '''
+    Parameters
+    ----------
+    multiindex : multiindex consisting of year and month
+
+    Returns
+    -------
+    monthly_ave_rev_mapping : dataframe that maps year/month combinations
+    to actual historical average monthly revenues for Google merch store
     
-    # just to create a multiindex made of years and months 
-    #agg_year_month = df.groupby(['year', 'month']).count()
+    '''
     #actual monthly revenues from the GA demo account: 
     # 27 values from Aug 2016 to Oct 2018 incl. the latter
-    #print(agg_year_month.shape)
     year_month_df = pd.DataFrame([184319, 132387, 158161, 557886, 682118, 
                                   461792, 354995, 398422, 437901, 348331, 
                                   364283, 402301, 432101, 380179, 444810, 
@@ -38,10 +43,18 @@ def mapping_month_histRev(multiindex):
 		
 
 def agg_features(df):
+
     '''
-	Aggregation of features by fullVisitorId, if there are not enough elements 
-    to calculate st. deviation, assume it is 0
-	'''
+    Parameters
+    ----------
+    df : initial df
+
+    Returns
+    -------
+    agg : df aggregated by fullVisitorId.  If there are not enough elements 
+    to calculate st. deviation, assume it is 0 
+    
+    '''
     feat_to_agg = {
         'channelGrouping': [mode, 'count'],
         'count_ViewedCat': 'mean',
@@ -109,11 +122,6 @@ def reshapeRevDates(df, global_rev_var, num_last_revenues):
         # make last observation first, and take first num_last_revenues of them
         rev_seq = np.flip(sub_df[global_rev_var].values, axis = 0)[:num_last_revenues]  
         # calculate how much time elapsed from each revenue to last day of the time window
-        #print('last day')
-        #print(win_last_day)
-        #print('flip')
-        #print( np.flip(sub_df['visitStartTime'], 
-        #                                       axis = 0)[:num_last_revenues])
         timedelta_seq = win_last_day - np.flip(sub_df['visitStartTime'], 
                                                axis = 0)[:num_last_revenues]
         timedelta_seq = timedelta_seq.apply(lambda x: x.total_seconds()).values / 86400
@@ -142,15 +150,34 @@ def reshapeRevDates(df, global_rev_var, num_last_revenues):
 
 def generate_X_y(df, global_rev_var, num_last_revenues, start_day, monthly_ave_rev_mapping,
                  present_delta, future_delta, generate_y):
+    '''
+    Parameters
+    ----------
+    df : initial df
+    global_rev_var : column used as the revenue metric (dataset has two,  
+    according to the competition rules 'totals_transactionRevenue' )
+    num_last_revenues: number of last revenues to be used as feautures
+    start_day: first day of the current time window
+    monthly_ave_rev_mapping: mapping year/month to historical monthly revenue (function mapping_month_histRev)
+    present_delta: length (in days) of "present" time window for the calculation of features
+    future_delta: length (in days) of "future" time window for the calculation of future revenues
+    generate_y: (bool) whether to generate y (not possible for actual prediction)
 
+
+    Returns
+    -------
+    y: Series of y (future revenues for certain users for this time window)
+    X: df of features (based on the "present" time period for this time window)
+    
+    y is not returned if generate_y=False (used for generation of X for predicition)
+
+    '''
     present_tf = pd.Timedelta(present_delta, 'd') # present_tf means present time frame in days
     future_tf = pd.Timedelta(future_delta, 'd')  # future_tf means future time frame in days
     
     end_day = start_day + present_tf
     present_sample = df.query('(visitStartTime >= @start_day) & (visitStartTime < @end_day)')
-    #present_sample = df[(df['visitStartTime']>= start_day.timestamp()) & (df['visitStartTime']< (start_day + present_tf).timestamp())]
     
-    ##############################    X      ##################
     
     feat_agg_user = agg_features(present_sample)
     reshRevDate = reshapeRevDates(present_sample, global_rev_var, num_last_revenues)
@@ -171,12 +198,9 @@ def generate_X_y(df, global_rev_var, num_last_revenues, start_day, monthly_ave_r
     two_last_relev_month = two_latest_months([i for (i,j) in three_most_relevant_months])
     # average of the average revenues for these two months
     X['hist_monthly_rev'] = pd.Series(two_last_relev_month).map(monthly_ave_rev_mapping).mean()
-    #print(full_X['forecast_ave_rev'].isna().mean())
     X['hist_monthly_rev'] = X['hist_monthly_rev'].astype('int32')
     
-    if generate_y:  # only if we generate the training dataset, not the prediction one
-    
-        
+    if generate_y:  # only if we generate the training dataset, not the prediction one        
         # actual cumulated revenues over the future period
         future_rev = df[[global_rev_var, 'fullVisitorId']]
         future_start_day = start_day + present_tf
@@ -184,77 +208,38 @@ def generate_X_y(df, global_rev_var, num_last_revenues, start_day, monthly_ave_r
         future_rev = future_rev.query('visitStartTime >= @future_start_day &   \
                                 visitStartTime < @future_end_day')
         future_rev = future_rev.groupby('fullVisitorId').sum()
-                                #future_rev = df[(df['visitStartTime']>= (start_day + present_tf).timestamp()) & (df['visitStartTime']< (start_day + 
-                                #    present_tf +future_tf).timestamp())][[global_rev_var, 'fullVisitorId']].groupby('fullVisitorId').sum()
         future_rev.rename(columns = {global_rev_var: 'future_rev'}, inplace = True)
         rev_present_ids = pd.DataFrame(index = present_sample['fullVisitorId'].unique())
-        #rev_present_ids = pd.DataFrame(np.zeros(present_sample['fullVisitorId'].nunique()), 
-        #                         columns = ['rev_in_fut'], index = present_sample['fullVisitorId'].unique() )
-        # future revenues are first filled with zeros 
-    
-    
-    
         # for indices present in present_sample join future revenues (for the IDs from the future set)
         y = rev_present_ids.join(future_rev, how='left')
         # if there is no corresponding revenue in the "future revenues" df,
         # then no revenue was earned - replace it with 0
         y = y.fillna(0).sort_index()
-        #y_join.loc[(~pd.isna(y_join['valid'])), 'rev_in_fut']= y_join['valid'] 
-        #y = y_join['rev_in_fut'].sort_index()
-        #y_bin = (y>0).astype('int16')
     
         return y, X
-
-    
-    
+        
     return X
 	
-#def generate_X_test(df, start_day, present_delta):
-#    print('Generating X test')
-#    print(start_day)
-#    present_tf = pd.Timedelta(present_delta, 'd') # days
-#    present_sample = df.query('(visitStartTime >= @start_day) & (visitStartTime < (@start_day + @present_tf))')
-#    #present_sample = df[(df['visitStartTime']>= start_day.timestamp()) & (df['visitStartTime']< (start_day + present_tf).timestamp())]
-#  
-#      ##############################    X      ##################
-#    
-#    feat_agg_user = agg_features(present_sample)
-#    reshRevDate = reshapeRevDates(present_sample, global_rev_var, num_last_revenues)
-#	# since reshRevTime contains data only for users with positive revenues, it contains far fewer rows that feat_agg_user
-#    full_X = feat_agg_user.join(reshRevDate, how = 'left')
-#	# argument is a dict: fillna for revenues and weighted revenues with 0, times with 10000000
-#    full_X.fillna({**{'rev_{}'.format(i+1):0 for i in range(num_last_revenues)} , 
-#                   **{'timeShift_{}'.format(i+1):10000000 for i in range(num_last_revenues)},
-#      **{'weightRev_{}'.format(i+1):0 for i in range(num_last_revenues)}}, inplace=True, axis= 0) 
-#	# numbers of two last full months of the validation period
-#    forecast_month_tuple = (12,1)
-#	# average of the average revenues for these two months
-#    full_X['forecast_ave_rev'] = pd.Series(forecast_month_tuple).map(monthly_ave_rev_mapping).mean()
-  
-#    return full_X
-  
-
-	
-
-
 
 @click.command()
 @click.argument('input_filepath', type=click.Path(exists=True))
 @click.argument('output_filepath', type=click.Path())
 def main(input_filepath, output_filepath):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        unpacked data (saved in ../unpacked).
+    """ Runs the script to generate features and target variables
+         based on several time windows of equal sizes (rolling window).
+         The resulting level of granularity is fullVisitorId
+         Each column in X represents features related to one visitor
+         aggregated over a certain period of time ("present" period). The corresponding y value
+         is the revenue generated by this visitor during a certain future period of time.
     
-    Throughout the code we differentiate between 
-    - present (timeframe, timedelta) - this refers to the "current" time period
-      for which we have data
-    - future (timeframe, timedelta) - this refers to the "future" time period
-      for we have to  predict revenue
-    These two time periods do not intersect.
-    
+        Throughout the code we differentiate between 
+        - present (timeframe, timedelta) - this refers to the "current" time period
+            used for feature calculation / aggregation
+        - future (timeframe, timedelta) - this refers to the "future" time period
+            used to calculate future revenue
+        These two time periods do not intersect.
     
     """
-   
     
     if os.path.isfile('create_X_y_logging.log'):
         os.remove('create_X_y_logging.log')
@@ -272,15 +257,6 @@ def main(input_filepath, output_filepath):
     abs_last_day = global_params['abs_last_day']
     
     
-    #global_rev_var = 'totals_transactionRevenue'   
-    #num_last_revenues = 10
-    #present_delta = 500
-    #future_delta = 108
-    #num_windows = 8
-    #abs_first_day = pd.to_datetime('2016-08-01')
-    #abs_last_day = pd.to_datetime('2018-10-16')
-    
-    
     for fil in os.listdir(output_filepath):
         os.remove(os.path.join(output_filepath, fil))
     
@@ -291,7 +267,6 @@ def main(input_filepath, output_filepath):
     month_year_pairs = pd.date_range(start=abs_first_day, end=abs_last_day, freq='MS' )
     month_year_index = pd.MultiIndex.from_arrays([month_year_pairs.year, 
                                                   month_year_pairs.month])
-    #conc_light = conc[conc[global_rev_var]>0][['year', 'month']]
     monthly_ave_rev_mapping = mapping_month_histRev(month_year_index)
     
     # we need to use all latest data in full
@@ -318,7 +293,6 @@ def main(input_filepath, output_filepath):
                                  present_delta = present_delta, 
                                  future_delta = future_delta,
                                  generate_y=True)
-        #logger.info('Window shift: {}. y, full_x are generated'.format(winshift))
         y.to_pickle( os.path.join(output_filepath, 'y_{:0=4}.zip'.format(winshift)))
         del y
         logger.info('y_{:0=4} saved'.format(winshift))
@@ -345,38 +319,16 @@ def main(input_filepath, output_filepath):
     logger.info('X_pred saved'.format(winshift)) 
     print('X_pred saved'.format(winshift)) 
     del X_pred
-    #gc.collect()
     del conc
-    #gc.collect()
 
-    #gc.collect()
-
-    
-
-
-    
 
     logger.info('Process finished')
     print('Process finished')
     logging.shutdown()
     
-    
-    
-   
-   
-    
-    
 
-    
-
-    
     
 if __name__ == '__main__':
-    #log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    #logging.basicConfig(level=logging.INFO, format=log_fmt)
-
-    # not used in this stub but often useful for finding various files
-    #project_dir = Path(__file__).resolve().parents[2]
 
     # find .env automagically by walking up directories until it's found, then
     # load up the .env entries as environment variables

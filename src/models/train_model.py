@@ -19,11 +19,10 @@ import json
 @click.argument('output_trained_filepath', type=click.Path())
 def main(input_filepath, submission_filepath, 
          output_prediction_filepath, output_trained_filepath):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        unpacked data (saved in ../unpacked).
+    """ Runs a script to train a model using the prepecified hyperparameters
+        and using previously created X_train adn y; uses the trained model
+        to make a prediction 
     """
-    
-    pd.set_option('display.max_rows', None)
     
     
     if os.path.isfile('training_logging.log'):
@@ -36,8 +35,6 @@ def main(input_filepath, submission_filepath,
         for fil in os.listdir(output_filepath):
             os.remove(os.path.join(output_filepath, fil))
         
-
-
     X_train = pd.read_pickle(os.path.join(input_filepath, 'X_train_concat.zip'))
     X_pred = pd.read_pickle(os.path.join(input_filepath, 'X_pred.zip'))
     y_train = pd.read_pickle(os.path.join(input_filepath, 'y_concat.zip'))
@@ -51,10 +48,7 @@ def main(input_filepath, submission_filepath,
     
     dtrain = lgb.Dataset(X_train, y_log, free_raw_data=False, silent=False, 
                      categorical_feature= cat_feat)
-    #print(type(dtrain))
-    #print(X_train.isna().mean())
-    #print(X_pred.isna().mean())
-    #print(y_log.isna().mean())
+    
     lgbm_model = lgb.train(params = lgb_params, 
                            train_set = dtrain,  
                            valid_sets = [dtrain],
@@ -92,22 +86,7 @@ def main(input_filepath, submission_filepath,
     logging.shutdown()
     
     
-    
-   
-   
-    
-    
-
-    
-
-    
-    
 if __name__ == '__main__':
-    #log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    #logging.basicConfig(level=logging.INFO, format=log_fmt)
-
-    # not used in this stub but often useful for finding various files
-    #project_dir = Path(__file__).resolve().parents[2]
 
     # find .env automagically by walking up directories until it's found, then
     # load up the .env entries as environment variables

@@ -7,9 +7,6 @@ import pandas as pd
 import numpy as np
 from ast import literal_eval
 from src.utils import get_logger
-import sys
-
-
 
 
 def unpack(df, jsoncols):
@@ -28,17 +25,15 @@ def unpack(df, jsoncols):
     json fields are the same for many rows, e.g. '{"browser": "Chrome", 
     "browserVersion": "not available in demo dataset",...}'. 
     '''
-    for jc in jsoncols:  # parse json
-        # use index of df to enable joining
+    for jc in jsoncols:
+        # use index of df to enable joining (see below)
         flat_df = pd.DataFrame(df.pop(jc).apply(pd.io.json.loads).values.tolist(), index = df.index)
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
         df = df.join(flat_df)
     return df
 
 def unpack_2(df, jsoncols):
-
     '''
-    
     Parameters
     ----------
     df : initial df
@@ -53,12 +48,12 @@ def unpack_2(df, jsoncols):
     Each column value is a string of the pattern "[{'index': '4', 'value': 'APAC'}]"
     Some values are strings containing an empty list "[]"
     This is why literal evaluation comes into play.
-     Written for one particular column 
-    (customDimensions)
+     Written for one particular column (customDimensions)
     '''
     for jc in jsoncols:  # parse json
         flat_df = df[jc].apply(literal_eval).apply(pd.json_normalize).tolist()  
-        # result is a list of dataframes, each has one row, row index=0 and columns 'index' and 'value' according to the given json format
+        # result is a list of dataframes, each has one row, row index=0 and columns 
+        # 'index' and 'value' according to the given json format
         # cannot make a DataFrame from the list right away because some elements are empty dataframes
         # they would just collapsed, but they should be kept as NaN
         for i in range(len(flat_df)):
@@ -70,7 +65,7 @@ def unpack_2(df, jsoncols):
             # next line makes a new index, otherwise it is 0 for all dfs
             flat_df[i] = pd.DataFrame(flat_df[i].values, columns=flat_df[i].columns, index=[i])
         flat_df = pd.concat(flat_df, sort=True)
-        # use original index of df to enable joining
+        # use index of df to enable joining (see below)
         flat_df = pd.DataFrame(flat_df.values, columns=flat_df.columns, index=df.index)
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
         df = df.join(flat_df)
@@ -93,8 +88,7 @@ def unpack_3(df, jsoncols):
     to each json field in it
     
     Another function for unpacking json columns packed in a third way: each column value is just 
-    a dict. Written for one particular column 
-    (trafficSource_adwordsClickInfo)
+    a dict. Written for one particular column  (trafficSource_adwordsClickInfo)
     '''
     for col in jsoncols :
         df = df.copy()
@@ -176,13 +170,17 @@ def count_page(x):
 @click.argument('input_filepath', type=click.Path(exists=True))
 @click.argument('output_filepath', type=click.Path())
 def main(input_filepath, output_filepath):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        unpacked data (saved in ../unpacked).
+    """ Runs the script to "unpack" the train and test datasets.
+        Many columns in train and test have (possibly multilevel) json elements 
+        rather than just string or numeric values. The scipt unpacks 
+        more all json columns, but does not turn all json fields into columns.
+        Some json fields are excluded in advance, some newly created columns
+        are deleted after the creation (imitating the real-life situation where
+        some columns can be declared irrelevant after viewing the logs).
+        "Hits" columns contains information on several hist per each row (web-session).
+        The data for all hits are aggregated for each session.
     """
-    #logger = logging.getLogger(__name__)
-    #logger.info('making final data set from raw data')
-    
-    #print(sys.path)
+
     
     if os.path.isfile('unpack_logging.log'):
         os.remove('unpack_logging.log')
@@ -209,8 +207,8 @@ def main(input_filepath, output_filepath):
                           'trafficSource_adwordsClickInfo_isVideoAd', 
                           'trafficSource_adwordsClickInfo_page']
     
-    # these are based on exploratory analysis of the columns where feasible
-    # and also on the logs created below 
+    # these are based on exploratory analysis of the columns where feasible,
+    #  on the logs created below and also on the common sense
     col_to_drop = ['date', 'visitId', 'device_browserSize', 'device_browserVersion', 
                    'device_flashVersion', 'device_language', 'device_mobileDeviceBranding',	
                    'device_mobileDeviceInfo',	'device_mobileDeviceMarketingName', 
@@ -236,9 +234,6 @@ def main(input_filepath, output_filepath):
                     'geoNetwork_country', 'totals_newVisits'
                    ]
     
-    
-    
-    
     # fields in the hits column to be left (according to sample exploratory analysis)
     hits_required_cols = [
                           'hits_contentGroup.contentGroup2', 
@@ -256,7 +251,7 @@ def main(input_filepath, output_filepath):
                        dtype = {'fullVisitorId': 'str'}, chunksize = 150000, 
                        usecols = lambda x: x not in ['hits'], index_col=False)
         
-        # processing all columns execpt "hits"
+        # processing all columns except "hits"
         for i, chunk in enumerate(reader):
             logger.info('chunk number: {}'.format(i))
             print('chunk number: {}'.format(i))
@@ -303,14 +298,9 @@ def main(input_filepath, output_filepath):
             hits = chunk[['hits']]
 
             unp_hits = unpack_hits(hits, hits.columns, hits_required_cols)
-
-            #for col in ['hits_customDimensions', 'hits_customMetrics', 
-            #            'hits_customVariables', 'hits_experiment', 
-            #            'hits_publisher_infos']:
-            #    logger.info(unp_hits[col].apply(str).value_counts())
-                # to make sure these columns are empty,
-                # value_counts is self-explanatory, column name is printed automatically
-            
+            logger.info('unpacking finished')
+            print('unpacking finished')
+          
             # aggregate hits data (that are on hit level) to the session level
             unp_hits_agg = unp_hits[[
                                      'hits_contentGroup.contentGroup2', 
@@ -328,6 +318,8 @@ def main(input_filepath, output_filepath):
                                 'hits_social.socialNetwork': 'first',
                                 'hits_type': count_page
                                 })
+            logger.info('aggregation of hits data finished')
+            print('aggregation of hits data finished')
             unp_hits_agg.to_pickle(os.path.join(output_filepath, 
                                                 file_name + '_agg_hits_{}.zip'.format(i)))
         
@@ -364,11 +356,6 @@ def main(input_filepath, output_filepath):
     logging.shutdown()    
                 
 if __name__ == '__main__':
-    #log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    #logging.basicConfig(level=logging.INFO, format=log_fmt)
-
-    # not used in this stub but often useful for finding various files
-    #project_dir = Path(__file__).resolve().parents[2]
 
     # find .env automagically by walking up directories until it's found, then
     # load up the .env entries as environment variables

@@ -1,5 +1,7 @@
 import pandas as pd
 
+
+# rolling window parameters for generation of time windows
 global_params = dict(
 global_rev_var='totals_transactionRevenue',   
 num_last_revenues=10,
@@ -11,6 +13,7 @@ abs_last_day=pd.to_datetime('2018-10-16')
 )
 
 
+# Light GBM training parameters
 lgb_params = {
         'boosting_type': 'gbdt', 
         'colsample_bytree': 0.7000000000000001,   # feature_fraction
