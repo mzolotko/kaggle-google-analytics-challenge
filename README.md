@@ -34,7 +34,7 @@ Project Organization
     │
     ├── notebooks          <- Jupyter notebooks.
     │
-`make create_environment`    │
+    │
     ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
     │                         generated with `pip freeze > requirements.txt`
     │
