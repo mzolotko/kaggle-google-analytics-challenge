@@ -2,7 +2,7 @@ Solution to the Google Analytics Customer Revenue Prediction challenge
 ==============================
 
 
-This project is a solution to the Google Analytics Customer Revenue Prediction challenge that helped me secure the top 2% ranking on the private leaderboard. Please refer to the official competition web page (https://www.kaggle.com/c/ga-customer-revenue-prediction) to learn about the task and available data.
+This project is a solution to the Google Analytics Customer Revenue Prediction challenge that helped me secure the top 4% ranking on the private leaderboard. Please refer to the official competition web page (https://www.kaggle.com/c/ga-customer-revenue-prediction) to learn about the task and available data.
 
 This competition was peculiar in many ways. There was a significant change of how the task was formulated half-way through the competition due a revealed data leak (though the "leaked" data available via the Google Analytics demo account were not available directly, they allowed some participants to achieve outstanding scores on the public LB). Not only was the task changed as the result of the leak, new data was made available as well. Besides, there were a couple of other issues that were addressed in the forum and considered valid by the organisers, but for them it was too late to change the rules. These issues are:
 
