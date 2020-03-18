@@ -73,7 +73,7 @@ def unpack_2(df, jsoncols):
         df = df.join(flat_df)
         for col in flat_df.columns:
             df.loc[df[jc] == '[]', col] = np.nan
-        df.drop(jc, axis=1, inplace=True)        
+        df.drop(columns=jc, inplace=True)        
     return df
 
 def unpack_3(df, jsoncols):
@@ -282,9 +282,14 @@ def main(input_filepath, output_filepath):
         for i, chunk in enumerate(reader):
             logger.info('chunk number: {}'.format(i))
             print('chunk number: {}'.format(i))
-            # drop first unnamed column, which is supposed to be the index
-            # the range index was created automatically
-            chunk.drop(columns=[chunk.columns[0]], inplace=True)
+            # the first columns in the csv file is not named,
+            # it is supposed to be an index, 
+            # the behaviour of read_csv seems to be unstable despite parameters
+            # if this column is recognised as index, we will use it as the index
+            # if it is recognised as column (and named "Unnamed: 0"), we will delete it
+            #chunk.drop(columns=[chunk.columns[0]], inplace=True)
+            chunk.drop(columns=chunk.columns[chunk.columns.str.contains('nnamed')],
+                        inplace=True)
             df = unpack(chunk, jsoncols)
             print('unpack finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
             df = unpack_2(df, cols_cust_dim)
@@ -298,7 +303,7 @@ def main(input_filepath, output_filepath):
                     # value_counts is self-explanatory, column name is printed automatically
             if 'trafficSource_adwordsClickInfo_targetingCriteria' in df.columns:
                 logger.info('targetingCriteria NA mean: {:.2f}'.format(pd.isna(df['trafficSource_adwordsClickInfo_targetingCriteria']).mean()))
-            df.drop(col_to_drop, axis=1, inplace=True, errors='ignore')
+            df.drop(columns=col_to_drop, inplace=True, errors='ignore')
     
             # save each processed chunk of initial files without the hits column
             df.to_pickle(os.path.join(output_filepath, file_name + '_no_hits_{}.zip'.format(i)))

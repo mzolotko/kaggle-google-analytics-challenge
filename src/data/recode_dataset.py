@@ -69,7 +69,7 @@ def fillna_convert(df):
         df.loc[pd.isnull(df['totals_pageviews']), 'totals_hits']
     
     # countPageViews is no longer needed
-    df.drop(['countPageViews'], axis=1, inplace=True, errors='ignore')
+    df.drop(columns=['countPageViews'], inplace=True, errors='ignore')
     
     df['totals_hits'] = df['totals_hits'].astype('int32')
     df['totals_pageviews'] = df['totals_pageviews'].astype('int32')
@@ -124,8 +124,8 @@ def gen_dummies_ratios(df):
     df['share_PromoView'] = df.eval('count_PromoView / totals_hits')
   
     # after calculating ratios we don't need these two columns
-    df.drop( ['count_PromoView', 'count_AddCart'], 
-            axis=1, inplace=True)
+    df.drop( columns=['count_PromoView', 'count_AddCart'], 
+            inplace=True)
     # share of the number of total hits
     df.loc[df['totals_hits'] == 0, 'share_PromoView'] = 0
   
@@ -185,8 +185,8 @@ def recod(df):
                                                     case=False, na=False) , 
                                        'trafficSource_keyword_recod'] = 1
     
-    df.drop(list(recod_col.keys()) + ['trafficSource_keyword'], 
-            axis=1, inplace=True)
+    df.drop(columns=list(recod_col.keys()) + ['trafficSource_keyword'], 
+            inplace=True)
     
     return df
 
