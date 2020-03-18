@@ -72,7 +72,7 @@ The workflow is described for Linux, to run it on Windows you will have to insta
 1. Download competition data from Kaggle and put the files train_v2.csv, test_v2.csv, sample_submission_v2.csv in the folder data/raw. 
 
 - Analysis scripts
-1. Run `make unpack_data` to run the script that unpacks columns containing json fields and drops unnecessary columns.
+1. Run `make unpack_data` to run the script that unpacks columns containing json fields and drops unnecessary columns (this will take several hours due to the size of the data).
 1. Run `make recode_data` to run the script that recodes some features and generates some new.
 1. Run `make create_X_y` to run the script that creates time window based aggregated features and corresponding target variable values.
 1. Run `make concat_X_y` to run the script that concatenates time window based aggregated features and target variable values into one dataframe.
