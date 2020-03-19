@@ -59,10 +59,7 @@ def unpack_2(df, jsoncols):
         # they would just collapsed, but they should be kept as NaN
         for i,_ in enumerate(flat_df):
             if flat_df[i].empty:
-                # just insert some dataframe with the correct format. 
-                # The dfs will be concatenated, and if the corresponding df was empty, 
-                # the values in the concatenated df will be replaced with NaN in the next step
-                #flat_df[i] = flat_df[i-1]  
+                # just insert a dataframe without values, but with col names and index
                 flat_df[i] = pd.DataFrame(columns=['index', 'value'], index=[0])
             # next line makes a new index, otherwise it is 0 for all dfs
             #flat_df[i] = pd.DataFrame(flat_df[i].values, columns=flat_df[i].columns, index=[i])
@@ -123,17 +120,11 @@ def unpack_hits(df, cols_to_unpack, required_cols):
         # each row represents one hit. Each df represents one session of one user)
         for i, _ in enumerate(flat_df):
             if flat_df[i].empty: # if the value in the original hist column is '[]',
-                                 # this will result in an empty df
-                # Create a DataFrame composed of NAs with all required columns and a multiindex (see below)
-                #flat_df_elem = pd.DataFrame(np.tile(np.nan,(1, len(required_cols))), columns=required_cols, 
-                #                        index=pd.MultiIndex.from_product([[i],[0]],  names=['ind_exter', 'ind_inter']))
+                # this would have resulted in an empty df (no index, no columns, it wouldn't
+                # be taken into account when concatenating), 
+                # let's create a df with columns and index, but without values
                 flat_df_lean.append(pd.DataFrame(columns=required_cols, index=[i]))
             else:
-                #iterables = [[i], flat_df_elem.index]
-                # multiindex necessary because each cell contained more than one entry of several json fields
-                #m_index = pd.MultiIndex.from_product(iterables, names=['ind_exter', 'ind_inter'])
-                
-                #flat_df_elem = pd.DataFrame(flat_df_elem.values, columns=flat_df_elem.columns, index=m_index)
                 flat_df_lean.append(pd.DataFrame(columns=required_cols.keys(), index=[i]))
                 for col in required_cols:
                     if col in flat_df[i].columns:
@@ -144,7 +135,6 @@ def unpack_hits(df, cols_to_unpack, required_cols):
         # the total number of hits, i.e.
         # the sum of hits for all individual sessions
         flat_df.columns = ['{}_{}'.format(jc, c) for c in flat_df.columns]
-        #flat_df = flat_df[required_cols]
         # we don't join the result with the initial df. We return it as is
         # and aggregate to the session level later
     return flat_df 
@@ -252,15 +242,6 @@ def main(input_filepath, output_filepath):
                     'geoNetwork_country', 'totals_newVisits'
                    ]
 
-    # fields in the hits column to be left (according to sample exploratory analysis)
-  #  hits_required_cols = [
-  #                        'hits_contentGroup.contentGroup2', 
-  #                        'hits_eventInfo.eventAction', 
-  #                        'hits_promotionActionInfo.promoIsView',
-  #                        'hits_referer',
-  #                        'hits_social.socialNetwork', 
-  #                        'hits_type']
-
     hits_required_cols = {                 
                         'contentGroup.contentGroup2':  'nunique',
                         'eventInfo.eventAction': count_cart,
@@ -284,10 +265,9 @@ def main(input_filepath, output_filepath):
             print('chunk number: {}'.format(i))
             # the first columns in the csv file is not named,
             # it is supposed to be an index, 
-            # the behaviour of read_csv seems to be unstable despite parameters
+            # the behaviour of read_csv seems to be unstable despite provided parameters
             # if this column is recognised as index, we will use it as the index
             # if it is recognised as column (and named "Unnamed: 0"), we will delete it
-            #chunk.drop(columns=[chunk.columns[0]], inplace=True)
             chunk.drop(columns=chunk.columns[chunk.columns.str.contains('nnamed')],
                         inplace=True)
             df = unpack(chunk, jsoncols)
@@ -336,26 +316,6 @@ def main(input_filepath, output_filepath):
             unp_hits_agg = unpack_hits(hits, hits.columns, hits_required_cols)
             logger.info('unpacking finished')
             print('unpacking finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
-          
-            # aggregate hits data (that are on hit level) to the session level
-            #unp_hits_agg = unp_hits[[
-            #                         'hits_contentGroup.contentGroup2', 
-            #                         'hits_eventInfo.eventAction',
-            #                         'hits_promotionActionInfo.promoIsView',
-            #                         'hits_referer',
-            #                         'hits_social.socialNetwork', 
-            #                         'hits_type']].groupby(level=0).agg({
-       # 
-       #                         
-       #                         'hits_contentGroup.contentGroup2':  'nunique',
-       #                         'hits_eventInfo.eventAction': count_cart,
-       #                         'hits_promotionActionInfo.promoIsView': 'count',
-       #                         'hits_referer': 'first',
-       #                         'hits_social.socialNetwork': 'first',
-       #                         'hits_type': count_page
-       #                         })
-       #     logger.info('aggregation of hits data finished')
-       #     print('aggregation of hits data finished, {:.2f} minutes elapsed'.format((time.time() - time_0) / 60))
             unp_hits_agg.to_pickle(os.path.join(output_filepath, 
                                                 file_name + '_agg_hits_{}.zip'.format(i)))
         

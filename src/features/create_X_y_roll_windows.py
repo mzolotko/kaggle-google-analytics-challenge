@@ -36,7 +36,7 @@ def mapping_month_histRev(multiindex):
     # three values as they seem to be outliers, the rest of the values build 
     # quite a smooth line
     # mapping defined as month: average historical revenue
-    monthly_ave_rev_mapping = year_month_df.iloc[3:,0].groupby(level = 1).mean()	
+    monthly_ave_rev_mapping = year_month_df.iloc[3:,0].groupby(level=1).mean()	
     return monthly_ave_rev_mapping
 
 
@@ -86,7 +86,7 @@ def agg_features(df):
     agg.columns = pd.Index([e[0] + "_" + e[1].upper() for e in agg.columns.tolist()])  
     col_std = agg.columns[agg.columns.str.contains('_STD')]
     for col in col_std:
-        agg[col].fillna(0, inplace = True)
+        agg[col].fillna(0, inplace=True)
     return agg
    
 def reshapeRevDates(df, global_rev_var, num_last_revenues):
@@ -120,10 +120,10 @@ def reshapeRevDates(df, global_rev_var, num_last_revenues):
     for q, sub_df in grouped_df:
         
         # make last observation first, and take first num_last_revenues of them
-        rev_seq = np.flip(sub_df[global_rev_var].values, axis = 0)[:num_last_revenues]  
+        rev_seq = np.flip(sub_df[global_rev_var].values, axis=0)[:num_last_revenues]  
         # calculate how much time elapsed from each revenue to last day of the time window
         timedelta_seq = win_last_day - np.flip(sub_df['visitStartTime'], 
-                                               axis = 0)[:num_last_revenues]
+                                               axis=0)[:num_last_revenues]
         timedelta_seq = timedelta_seq.apply(lambda x: x.total_seconds()).values / 86400
         lst_idx.append(q)
         # how many zeros are required to maintain the length equal to num_last_revenues
@@ -138,8 +138,8 @@ def reshapeRevDates(df, global_rev_var, num_last_revenues):
                                    np.divide(rev_seq, timedelta_seq), np.repeat(0, len_padding_zeros)
                                    ]))
     reshRevTime = pd.DataFrame(np.vstack(lst_data), 
-                               index = lst_idx, 
-                               columns = 
+                               index=lst_idx, 
+                               columns= 
      ['{}_{}'.format(variab, i+1) for 
       variab in ['rev', 'timeShift', 'weightRev'] for i in range(num_last_revenues)]) 
     # result: rev_1, rev_2 etc.
@@ -182,12 +182,12 @@ def generate_X_y(df, global_rev_var, num_last_revenues, start_day, monthly_ave_r
     feat_agg_user = agg_features(present_sample)
     reshRevDate = reshapeRevDates(present_sample, global_rev_var, num_last_revenues)
     # since reshRevTime contains data only for users with positive revenues, it contains far fewer rows that feat_agg_user
-    X = feat_agg_user.join(reshRevDate, how = 'left')
+    X = feat_agg_user.join(reshRevDate, how='left')
     # argument is a dict: fillna for revenues and weighted revenues with 0, times with 10000000
     X.fillna({**{'rev_{}'.format(i+1):0 for i in range(num_last_revenues)} , 
                    **{'timeShift_{}'.format(i+1):10000000 for i in range(num_last_revenues)},
                    **{'weightRev_{}'.format(i+1):0 for i in range(num_last_revenues)}}, 
-                  inplace=True, axis= 0) 
+                  inplace=True, axis=0) 
     # we need as the regressors average historical revenue for the calendar months
     # that most well cover the "future" period - period when revenues will be earned
     # first we find out what months these are: by taking 3 most common
@@ -208,8 +208,8 @@ def generate_X_y(df, global_rev_var, num_last_revenues, start_day, monthly_ave_r
         future_rev = future_rev.query('visitStartTime >= @future_start_day &   \
                                 visitStartTime < @future_end_day')
         future_rev = future_rev.groupby('fullVisitorId').sum()
-        future_rev.rename(columns = {global_rev_var: 'future_rev'}, inplace = True)
-        rev_present_ids = pd.DataFrame(index = present_sample['fullVisitorId'].unique())
+        future_rev.rename(columns={global_rev_var: 'future_rev'}, inplace=True)
+        rev_present_ids = pd.DataFrame(index=present_sample['fullVisitorId'].unique())
         # for indices present in present_sample join future revenues (for the IDs from the future set)
         y = rev_present_ids.join(future_rev, how='left')
         # if there is no corresponding revenue in the "future revenues" df,
@@ -288,10 +288,10 @@ def main(input_filepath, output_filepath):
         y, X = generate_X_y(df=conc, 
                                  global_rev_var=global_rev_var,
                                  num_last_revenues=num_last_revenues,
-                                 start_day = abs_first_day + pd.Timedelta(winshift, 'd'), 
+                                 start_day=abs_first_day + pd.Timedelta(winshift, 'd'), 
                                  monthly_ave_rev_mapping=monthly_ave_rev_mapping,
-                                 present_delta = present_delta, 
-                                 future_delta = future_delta,
+                                 present_delta=present_delta, 
+                                 future_delta=future_delta,
                                  generate_y=True)
         y.to_pickle( os.path.join(output_filepath, 'y_{:0=4}.zip'.format(winshift)))
         del y
@@ -308,10 +308,10 @@ def main(input_filepath, output_filepath):
     X_pred = generate_X_y(df=conc, 
                                  global_rev_var=global_rev_var,
                                  num_last_revenues=num_last_revenues,
-                                 start_day = abs_last_day + pd.Timedelta(1, 'd') - pd.Timedelta(present_delta, 'd'), 
+                                 start_day=abs_last_day + pd.Timedelta(1, 'd') - pd.Timedelta(present_delta, 'd'), 
                                  monthly_ave_rev_mapping=monthly_ave_rev_mapping,
-                                 present_delta = present_delta, 
-                                 future_delta = future_delta,
+                                 present_delta=present_delta, 
+                                 future_delta=future_delta,
                                  generate_y=False)
     X_pred = reduce_mem_usage(X_pred, num_last_revenues)
 

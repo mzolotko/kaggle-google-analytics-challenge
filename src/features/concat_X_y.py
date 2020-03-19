@@ -38,7 +38,7 @@ def main(input_filepath, output_filepath):
     for fil in sorted(glob.glob(os.path.join(input_filepath, 'X_train*.*'))):
         X_frag = pd.read_pickle(fil)
         X_list.append(X_frag)
-    X_concat = pd.concat(X_list, axis = 0)
+    X_concat = pd.concat(X_list, axis=0)
     X_concat.to_pickle(os.path.join(output_filepath, 'X_train_concat.zip'))
     del X_list, X_concat
     
@@ -47,7 +47,7 @@ def main(input_filepath, output_filepath):
     for fil in sorted(glob.glob(os.path.join(input_filepath, 'y*.*'))):
         y_frag = pd.read_pickle(fil)
         y_list.append(y_frag)
-    y_concat = pd.concat(y_list, axis = 0)
+    y_concat = pd.concat(y_list, axis=0)
     y_concat.to_pickle(os.path.join(output_filepath, 'y_concat.zip'))
     del y_list, y_concat
     

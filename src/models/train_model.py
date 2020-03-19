@@ -36,7 +36,17 @@ def main(input_filepath, submission_filepath,
             os.remove(os.path.join(output_filepath, fil))
         
     X_train = pd.read_pickle(os.path.join(input_filepath, 'X_train_concat.zip'))
+    
+    # the next line rearranges the columns. Of course in general results should 
+    # not depend on the column order, but in this case they do, 
+    # Apparently a different column order means a different selection of features
+    # each boosting round, which mean slightly different resutling trees. 
+    # This column corresponds to the column order in my original solution.
+    # Without this line the score on the Private LB will be slightly worse
+    # and will be ranked around 20 ranks lower.
+    X_train = X_train[list(X_train.columns[:16]) + list(X_train.columns[18:35]) + [X_train.columns[-1]] + list(X_train.columns[35:-1]) + list(X_train.columns[16:18])]
     X_pred = pd.read_pickle(os.path.join(input_filepath, 'X_pred.zip'))
+    X_pred = X_pred[X_train.columns]
     y_train = pd.read_pickle(os.path.join(input_filepath, 'y_concat.zip'))
     y_log = np.log1p(y_train)
     
