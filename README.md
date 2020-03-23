@@ -32,7 +32,7 @@ Project Organization
     │   ├── trained        <- Trained models
     │   └── predictions    <- Model predictions (final submission file)
     │
-    ├── notebooks          <- Jupyter notebooks.
+    ├── reports            <- Reports on model characteristics/properties.
     │
     │
     ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
