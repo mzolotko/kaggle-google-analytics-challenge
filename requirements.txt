@@ -8,7 +8,7 @@ future==0.18.2
 idna==2.9
 Jinja2==2.11.1
 jinja2-time==0.2.0
-joblib==0.14.1
+joblib==1.2.0
 lightgbm==2.3.1
 MarkupSafe==1.1.1
 numpy==1.18.1
